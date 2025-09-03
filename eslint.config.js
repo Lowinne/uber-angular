@@ -32,8 +32,8 @@ module.exports = tseslint.config(
       ],
       // Règles strictes pour un code propre
       "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-empty-function": "off",
-      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-empty-function": "off",//A reactiver plus tard 
+      "@typescript-eslint/no-unused-vars": "off",// A reactiver plus tard
       "no-console": ["warn", { "allow": ["warn", "error"] }],
       "quotes": ["error", "single"],
       "semi": ["error", "always"],
