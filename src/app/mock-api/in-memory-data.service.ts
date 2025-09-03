@@ -29,6 +29,7 @@ export class InMemoryDataService implements InMemoryDbService {
       vehicles: vehiclesSeed(),
       trips: tripsSeed(),
       payments: [],
+      paymentMethods: [],
     };
     saveDbToStorage(initial);
     return initial;
@@ -55,14 +56,20 @@ export class InMemoryDataService implements InMemoryDbService {
       return reqInfo.utils.createResponse$(() => ({ status: 200, body: trips }));
     }
 
-    // /api/trips/current?riderId=1 -> trajet courant
+    // /api/trips/current?riderId=1 -> current trip for rider
     if (url.includes('/trips/current') && reqInfo.query.has('riderId')) {
       const riderId = Number(reqInfo.query.get('riderId')![0]);
       const trips = this.getDb(reqInfo).trips;
-      const current =
-        trips.find(
-          t => t.riderId === riderId && (t.status === 'requested' || t.status === 'ongoing')
-        ) ?? null;
+      const current = trips.find(
+        t => t.riderId === riderId && (t.status === 'requested' || t.status === 'ongoing')
+      );
+
+      // S'il n'y a pas de trajet en cours → 204 No Content (pas de body)
+      if (!current) {
+        return reqInfo.utils.createResponse$(() => ({ status: 204 }));
+      }
+
+      // Sinon → 200 + Trip
       return reqInfo.utils.createResponse$(() => ({ status: 200, body: current }));
     }
 
