@@ -6,8 +6,19 @@ import { InMemoryDataService } from './in-memory-data.service';
 import { MOCK_DB_KEY } from './persistence';
 import { firstValueFrom } from 'rxjs';
 import { User } from './db/users.seed';
-import { NearbyDriver } from './db/vehicles.seed';
 import { Trip } from './db/trips.seed';
+
+import { Vehicle } from './db/vehicles.seed';
+
+interface NearbyDriver {
+  id: number;
+  name: string;
+  rating: number;
+  vehicle: Vehicle;
+  etaMin: number;
+  lat: number;
+  lng: number;
+}
 
 describe('Mock API (InMemoryDataService)', () => {
   let http: HttpClient;

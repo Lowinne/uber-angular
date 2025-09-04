@@ -10,16 +10,6 @@ export interface Vehicle {
   color: string;
 }
 
-interface NearbyDriver {
-  id: number;
-  name: string;
-  rating: number;
-  vehicle: Vehicle;
-  etaMin: number;
-  lat: number;
-  lng: number;
-}
-
 export const vehiclesSeed = (): Vehicle[] => [
   {
     id: 1,
