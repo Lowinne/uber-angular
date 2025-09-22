@@ -2,7 +2,12 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'rider/request', pathMatch: 'full' },
+  { path: '', redirectTo: 'home', pathMatch: 'full' },
+  {
+    path: 'home',
+    loadComponent: () =>
+      import('./features/home/home-page.component').then(m => m.HomePageComponent),
+  },
   {
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.routes').then(m => m.AUTH_ROUTES),
@@ -19,5 +24,5 @@ export const routes: Routes = [
     path: 'payments',
     loadChildren: () => import('./features/payments/payments.routes').then(m => m.PAYMENT_ROUTES),
   },
-  { path: '**', redirectTo: 'rider/request' },
+  { path: '**', redirectTo: 'home' },
 ];

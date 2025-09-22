@@ -8,7 +8,7 @@ import {
   FormControl,
 } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AuthService } from '../../../core/services/auth.service';
+import { AuthService } from '../../core/services/auth.service';
 
 type LoginForm = FormGroup<{
   email: FormControl<string>;
@@ -22,6 +22,7 @@ type LoginForm = FormGroup<{
   template: `
     <section class="wrap">
       <h2>Connexion</h2>
+
       <form [formGroup]="form" (ngSubmit)="onSubmit()">
         <label for="email">Email</label>
         <input id="email" formControlName="email" type="email" placeholder="alice@demo.com" />
@@ -94,7 +95,7 @@ export class LoginPageComponent {
   loading = signal(false);
   error = signal<string | null>(null);
 
-  // ✅ Typed reactive form (aucun any)
+  // ✅ Typed Reactive Forms (pas de any)
   form: LoginForm = this.fb.group({
     email: this.fb.control<string>('', { validators: [Validators.required, Validators.email] }),
     password: this.fb.control<string>('', { validators: [Validators.required] }),
@@ -105,10 +106,10 @@ export class LoginPageComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const { email, password } = this.form.getRawValue(); // types sûrs: string / string
+      const { email, password } = this.form.getRawValue(); // ✅ types sûrs: string/string
       await this.auth.login(email, password);
       await this.router.navigateByUrl('/rider/request');
-    } catch (_e: unknown) {
+    } catch (e: unknown) {
       // ✅ pas de any
       this.error.set('Identifiants invalides');
     } finally {

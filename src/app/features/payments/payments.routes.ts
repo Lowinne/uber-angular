@@ -1,16 +1,20 @@
 import { Routes } from '@angular/router';
-import { Component } from '@angular/core';
-
-// A remplacer lorsque pret
-@Component({ standalone: true, template: '<h2>Add Payment Method</h2>' })
-class AddMethodComponent {}
-
-// A remplacer lorsque pret
-@Component({ standalone: true, template: '<h2>Receipts</h2>' })
-class ReceiptsComponent {}
+import { authGuard } from '../../core/guards/auth.guard';
+import { roleGuard } from '../../core/guards/role.guard';
 
 export const PAYMENT_ROUTES: Routes = [
-  { path: 'add-method', component: AddMethodComponent },
-  { path: 'receipts', component: ReceiptsComponent },
+  {
+    path: 'add-method',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['rider', 'admin'] },
+    loadComponent: () =>
+      import('./add-method/add-method.component').then(m => m.AddMethodComponent),
+  },
+  {
+    path: 'receipts',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['rider', 'admin'] },
+    loadComponent: () => import('./receipts/receipts.component').then(m => m.ReceiptsComponent),
+  },
   { path: '', redirectTo: 'add-method', pathMatch: 'full' },
 ];

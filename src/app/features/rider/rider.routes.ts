@@ -1,9 +1,6 @@
 import { Routes } from '@angular/router';
 import { Component } from '@angular/core';
-
-//A remplacer lorsque Pret
-@Component({ standalone: true, template: '<h2>Request Ride</h2>' })
-class RequestRideComponent {}
+import { authGuard } from '../../core/guards/auth.guard';
 
 //A remplacer lorsque Pret
 @Component({ standalone: true, template: '<h2>Confirm Ride</h2>' })
@@ -18,7 +15,11 @@ class TrackRideComponent {}
 class HistoryComponent {}
 
 export const RIDER_ROUTES: Routes = [
-  { path: 'request', component: RequestRideComponent },
+  {
+    path: 'request',
+    canActivate: [authGuard],
+    loadComponent: () => import('./request-ride.component').then(m => m.RequestRideComponent),
+  },
   { path: 'confirm', component: ConfirmRideComponent },
   { path: 'track', component: TrackRideComponent },
   { path: 'history', component: HistoryComponent },
