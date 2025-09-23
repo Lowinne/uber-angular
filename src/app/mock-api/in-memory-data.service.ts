@@ -35,18 +35,35 @@ export class InMemoryDataService implements InMemoryDbService {
     return initial;
   }
 
+  private syncDb(reqInfo: RequestInfo) {
+    const persisted = loadDbFromStorage();
+    if (!persisted || persisted.__version !== MOCK_DB_VERSION) return;
+
+    const db = this.getDb(reqInfo);
+    // on remplace le contenu de la DB en mémoire par le dernier persisté
+    db.users = persisted.users;
+    db.vehicles = persisted.vehicles;
+    db.trips = persisted.trips;
+    db.payments = persisted.payments;
+    db.paymentMethods = persisted.paymentMethods;
+  }
+
   // ===== Custom endpoints =====
   post(reqInfo: RequestInfo) {
+    this.syncDb(reqInfo);
     const { url } = reqInfo;
     if (url.endsWith('/auth/login')) return this.login(reqInfo);
     if (url.endsWith('/trips/quote')) return this.tripQuote(reqInfo);
     if (url.endsWith('/trips/start')) return this.startTrip(reqInfo);
     if (url.endsWith('/trips/end')) return this.endTrip(reqInfo);
     if (url.endsWith('/drivers/nearby')) return this.nearbyDrivers(reqInfo);
+    if (url.endsWith('/trips/request')) return this.requestTrip(reqInfo);
+    if (url.endsWith('/trips/accept')) return this.acceptTrip(reqInfo);
     return undefined; // défaut: CRUD auto
   }
 
   get(reqInfo: RequestInfo) {
+    this.syncDb(reqInfo);
     const { url } = reqInfo;
 
     // /api/trips?riderId=1  -> historique
@@ -73,6 +90,15 @@ export class InMemoryDataService implements InMemoryDbService {
       return reqInfo.utils.createResponse$(() => ({ status: 200, body: current }));
     }
 
+    if (url.includes('/trips/pending')) return this.pendingTrips(reqInfo);
+    if (url.includes('/trips/current-for-driver') && reqInfo.query.has('driverId')) {
+      const driverId = Number(reqInfo.query.get('driverId')![0]);
+      const trips = this.getDb(reqInfo).trips;
+      const current = trips.find(t => t.driverId === driverId && t.status === 'ongoing') ?? null;
+      if (!current) return reqInfo.utils.createResponse$(() => ({ status: 204 }));
+      return reqInfo.utils.createResponse$(() => ({ status: 200, body: current }));
+    }
+
     return undefined;
   }
 
@@ -90,6 +116,22 @@ export class InMemoryDataService implements InMemoryDbService {
       : { status: 401, body: { message: 'Invalid credentials' } };
 
     return reqInfo.utils.createResponse$(() => options);
+  }
+
+  private computeQuote(
+    pickup: { lat: number; lng: number },
+    dropoff: { lat: number; lng: number },
+    category: 'X' | 'XL'
+  ) {
+    const distanceKm = Math.max(
+      1,
+      Math.round(Math.hypot((pickup.lat - dropoff.lat) * 111, (pickup.lng - dropoff.lng) * 75)) ||
+        2 + Math.random() * 10
+    );
+    const durationMin = Math.round(distanceKm * (3.5 + Math.random() * 1.5));
+    const base = category === 'XL' ? 2.0 : 1.0;
+    const price = +(base * (2.5 + distanceKm * 1.4) + Math.random() * 2).toFixed(2);
+    return { distanceKm, durationMin, price };
   }
 
   private tripQuote(reqInfo: RequestInfo) {
@@ -176,6 +218,73 @@ export class InMemoryDataService implements InMemoryDbService {
     }));
 
     return reqInfo.utils.createResponse$(() => ({ status: 200, body: enriched }));
+  }
+
+  // Rider crée une demande (status: requested)
+  private requestTrip(reqInfo: RequestInfo) {
+    const { userId, pickup, dropoff, category } = reqInfo.utils.getJsonBody(reqInfo.req) as {
+      userId: number;
+      pickup: { lat: number; lng: number };
+      dropoff: { lat: number; lng: number };
+      category: 'X' | 'XL';
+    };
+    const db = this.getDb(reqInfo);
+    const q = this.computeQuote(pickup, dropoff, category);
+
+    const trip = {
+      id: Date.now(),
+      riderId: userId,
+      pickup,
+      dropoff,
+      status: 'requested' as const,
+      price: q.price,
+      etaMin: 2 + Math.floor(Math.random() * 6),
+      distanceKm: q.distanceKm,
+      durationMin: q.durationMin,
+      // driverId/vehicleId vides tant que non accepté
+    };
+    db.trips.push(trip);
+    this.persistDb(reqInfo);
+    return reqInfo.utils.createResponse$(() => ({ status: 201, body: trip }));
+  }
+
+  // Liste des demandes en attente, éventuellement filtrables plus tard
+  private pendingTrips(reqInfo: RequestInfo) {
+    const db = this.getDb(reqInfo);
+    const list = db.trips.filter(t => t.status === 'requested');
+    return reqInfo.utils.createResponse$(() => ({ status: 200, body: list }));
+  }
+
+  // Driver accepte une demande → assignation + status: ongoing
+  private acceptTrip(reqInfo: RequestInfo) {
+    const { tripId, driverId, vehicleId } = reqInfo.utils.getJsonBody(reqInfo.req) as {
+      tripId: number;
+      driverId: number;
+      vehicleId: number;
+    };
+    const db = this.getDb(reqInfo);
+    const trip = db.trips.find(t => t.id === tripId);
+    if (!trip) {
+      return reqInfo.utils.createResponse$(() => ({
+        status: 404,
+        body: { message: 'Trip not found' },
+      }));
+    }
+    // sécurité basique : ne pas accepter deux fois
+    if (trip.status !== 'requested') {
+      return reqInfo.utils.createResponse$(() => ({
+        status: 409,
+        body: { message: 'Trip already taken' },
+      }));
+    }
+
+    trip.status = 'ongoing';
+    trip.driverId = driverId;
+    trip.vehicleId = vehicleId;
+    trip.startedAt = new Date().toISOString();
+
+    this.persistDb(reqInfo);
+    return reqInfo.utils.createResponse$(() => ({ status: 200, body: trip }));
   }
 
   // Laisse le CRUD par défaut, mais persiste après écriture

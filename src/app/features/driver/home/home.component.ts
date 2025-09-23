@@ -17,7 +17,7 @@ import { AuthService } from '../../../core/services/auth.service';
         </p>
         <nav class="actions">
           <a routerLink="/driver/current-trip">Trajet en cours</a>
-          <a routerLink="/driver/earnings">Gains</a>
+          <a routerLink="/driver/requests">Demandes</a>
         </nav>
       </div>
 
