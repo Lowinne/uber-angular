@@ -1,10 +1,14 @@
+// src/app/app.component.spec.ts
 import { TestBed } from '@angular/core/testing';
 import { AppComponent } from './app.component';
+import { RouterTestingModule } from '@angular/router/testing';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AppComponent],
+      imports: [RouterTestingModule, AppComponent], // RouterOutlet + RouterLink OK
+      providers: [provideHttpClientTesting()], // HttpClient pour AuthService/Header
     }).compileComponents();
   });
 
@@ -14,16 +18,17 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it(`should have the 'uber-angular' title`, () => {
+  it("should have the 'uber-angular' title", () => {
     const fixture = TestBed.createComponent(AppComponent);
     const app = fixture.componentInstance;
     expect(app.title).toEqual('uber-angular');
   });
 
-  it('should render title', () => {
+  it('should render the header', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, uber-angular');
+    // Le template ne contient pas de <h1>, on vérifie que le header est bien rendu
+    expect(compiled.querySelector('app-header')).not.toBeNull();
   });
 });
