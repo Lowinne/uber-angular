@@ -97,7 +97,7 @@ type RequestRideForm = FormGroup<{
           {{ quote()!.durationMin }} min
         </p>
         <button class="success" (click)="confirmRide()" [disabled]="loading()">Confirmer</button>
-        <button class="ghost" (click)="resetQuote()" [disabled]="loading()">Annuler</button>
+        <button appHighlight (click)="resetQuote()" [disabled]="loading()">Annuler</button>
       </div>
 
       <div class="err" *ngIf="error()">{{ error() }}</div>

@@ -1,6 +1,5 @@
 import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 
 export interface User {
   id: number;
@@ -9,57 +8,51 @@ export interface User {
   email: string;
 }
 
-interface LoginResponse {
-  token: string;
-  user: User;
-}
-
-const TOKEN_KEY = 'token';
-const AUTH_USER_KEY = '__auth_user__';
-
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  // ✅ HttpClient via inject() (pas de paramètre dans le constructeur)
   private http = inject(HttpClient);
 
   private _user = signal<User | null>(null);
   user = this._user.asReadonly();
 
   constructor() {
-    this.restoreFromStorage();
+    const stored = localStorage.getItem('__auth_user__');
+    const token = localStorage.getItem('token');
+    if (stored && token) this._user.set(JSON.parse(stored));
   }
 
-  private restoreFromStorage() {
-    try {
-      const token = localStorage.getItem(TOKEN_KEY);
-      const stored = localStorage.getItem(AUTH_USER_KEY);
-      if (token && stored) {
-        const u: User = JSON.parse(stored);
-        this._user.set(u);
-      }
-    } catch {
-      // ignore JSON parse errors
-      this._user.set(null);
-    }
+  async login(email: string, password: string) {
+    const res = await this.http
+      .post<{ token: string; user: User }>('/api/auth/login', { email, password })
+      .toPromise();
+    localStorage.setItem('token', res!.token);
+    localStorage.setItem('__auth_user__', JSON.stringify(res!.user));
+    this._user.set(res!.user);
+    return res!.user;
   }
 
-  async login(email: string, password: string): Promise<User> {
-    const res = await firstValueFrom(
-      this.http.post<LoginResponse>('/api/auth/login', { email, password })
-    );
-    localStorage.setItem(TOKEN_KEY, res.token);
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(res.user));
-    this._user.set(res.user);
-    return res.user;
+  async register(payload: {
+    name: string;
+    email: string;
+    password: string;
+    role?: 'rider' | 'driver' | 'admin';
+  }) {
+    const res = await this.http
+      .post<{ token: string; user: User }>('/api/auth/register', payload)
+      .toPromise();
+    localStorage.setItem('token', res!.token);
+    localStorage.setItem('__auth_user__', JSON.stringify(res!.user));
+    this._user.set(res!.user);
+    return res!.user;
   }
 
   logout() {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(AUTH_USER_KEY);
+    localStorage.removeItem('token');
+    localStorage.removeItem('__auth_user__');
     this._user.set(null);
   }
 
-  isLoggedIn(): boolean {
-    return !!localStorage.getItem(TOKEN_KEY);
+  isLoggedIn() {
+    return !!localStorage.getItem('token');
   }
 }

@@ -52,6 +52,7 @@ export class InMemoryDataService implements InMemoryDbService {
   post(reqInfo: RequestInfo) {
     this.syncDb(reqInfo);
     const { url } = reqInfo;
+    if (url.endsWith('/auth/register')) return this.register(reqInfo);
     if (url.endsWith('/auth/login')) return this.login(reqInfo);
     if (url.endsWith('/trips/quote')) return this.tripQuote(reqInfo);
     if (url.endsWith('/trips/start')) return this.startTrip(reqInfo);
@@ -151,6 +152,51 @@ export class InMemoryDataService implements InMemoryDbService {
       : { status: 401, body: { message: 'Invalid credentials' } };
 
     return reqInfo.utils.createResponse$(() => options);
+  }
+
+  private register(reqInfo: RequestInfo) {
+    const body = reqInfo.utils.getJsonBody(reqInfo.req) as {
+      name: string;
+      email: string;
+      password: string;
+      role?: 'rider' | 'driver' | 'admin';
+    };
+
+    // validations simples
+    if (!body?.name || !body?.email || !body?.password) {
+      return reqInfo.utils.createResponse$(() => ({
+        status: 400,
+        body: { message: 'Missing fields: name, email, password are required' },
+      }));
+    }
+
+    const db = this.getDb(reqInfo);
+    const exists = db.users.some(u => u.email.toLowerCase() === body.email.toLowerCase());
+    if (exists) {
+      return reqInfo.utils.createResponse$(() => ({
+        status: 409,
+        body: { message: 'Email already registered' },
+      }));
+    }
+
+    const nextId = Math.max(0, ...db.users.map(u => u.id)) + 1;
+    const newUser = {
+      id: nextId,
+      name: body.name,
+      email: body.email,
+      password: body.password, // stocké coté mock uniquement
+      role: body.role ?? ('rider' as const),
+      rating: 4.8, // démo
+    };
+
+    db.users.push(newUser);
+    this.persistDb(reqInfo);
+
+    const { password, ...safeUser } = newUser;
+    return reqInfo.utils.createResponse$(() => ({
+      status: 201,
+      body: { token: 'mock.jwt.token', user: safeUser },
+    }));
   }
 
   private computeQuote(

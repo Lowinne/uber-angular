@@ -35,6 +35,7 @@ import { AuthService, User } from '../../core/services/auth.service';
             aria-current="page"
             >Accueil</a
           >
+          <a routerLink="/auth/register">Créer un compte</a>
 
           <!-- Liens Rider -->
           <a *ngIf="isRiderOrAdmin()" routerLink="/rider/request" routerLinkActive="active"
