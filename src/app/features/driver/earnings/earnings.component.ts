@@ -1,7 +1,8 @@
-import { Component, inject, computed, OnInit, signal } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '../../../core/services/auth.service';
 import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { AuthService } from '../../../core/services/auth.service';
 import { Payment } from '../../../mock-api/db/payments.seed';
 
 @Component({
@@ -10,26 +11,31 @@ import { Payment } from '../../../mock-api/db/payments.seed';
   imports: [CommonModule],
   template: `
     <section class="wrap">
-      <h2>Gains</h2>
+      <h2>Mes gains</h2>
 
-      <div class="summary">
-        <div><strong>Total courses:</strong> {{ payments().length }}</div>
-        <div><strong>Total €:</strong> {{ total() | number: '1.2-2' }}</div>
+      <div class="toolbar">
+        <button (click)="refresh()" [disabled]="loading()">Rafraîchir</button>
+        <span *ngIf="loading()">Chargement…</span>
+        <span class="err" *ngIf="error()">{{ error() }}</span>
       </div>
+
+      <!-- Toast de feedback quand le total augmente -->
+      <div *ngIf="flash()" class="toast">+{{ flash()!.delta | number: '1.2-2' }} € reçu</div>
+
+      <p [class.pulse]="isPulsing()" *ngIf="total() > 0; else none">
+        Total encaissé :
+        <strong>{{ total() | number: '1.2-2' }} €</strong>
+      </p>
+      <ng-template #none>
+        <p>Aucun gain enregistré.</p>
+      </ng-template>
 
       <ul class="list">
         <li *ngFor="let p of payments()">
-          <span>#{{ p.id }}</span>
-          <span>Trip {{ p.tripId }}</span>
-          <span>{{ p.amount | number: '1.2-2' }} {{ p.currency }}</span>
-          <span [class.ok]="p.status === 'succeeded'">{{ p.status }}</span>
+          #{{ p.id }} · {{ p.amount ?? 0 | number: '1.2-2' }} {{ p.currency }} ({{ p.status }}) ·
+          {{ p.createdAt | date: 'short' }}
         </li>
       </ul>
-
-      <div class="hint">
-        NB : démo — on récupère toutes les entrées de paiement mock (côté rider). Dans un vrai back,
-        filtrer par driverId.
-      </div>
     </section>
   `,
   styles: [
@@ -39,32 +45,54 @@ import { Payment } from '../../../mock-api/db/payments.seed';
         display: grid;
         gap: 12px;
       }
-      .summary {
+      .toolbar {
         display: flex;
-        gap: 24px;
+        gap: 12px;
+        align-items: center;
       }
       .list {
         list-style: none;
         padding: 0;
-        margin: 0;
         display: grid;
-        gap: 8px;
+        gap: 6px;
       }
-      .list li {
-        display: grid;
-        grid-template-columns: 80px 1fr 120px 100px;
-        gap: 8px;
-        border: 1px solid #e5e7eb;
-        border-radius: 10px;
+      .err {
+        color: #b00020;
+      }
+      .toast {
+        align-self: start;
+        background: #ecfdf5;
+        color: #166534;
+        border: 1px solid #bbf7d0;
         padding: 8px 12px;
-      }
-      .ok {
-        color: #16a34a;
+        border-radius: 10px;
         font-weight: 600;
+        width: fit-content;
+        animation: fadein 0.2s ease-out;
       }
-      .hint {
-        color: #6b7280;
-        font-size: 0.9rem;
+      .pulse strong {
+        animation: pulse 0.6s ease-in-out 3;
+      }
+      @keyframes pulse {
+        0% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      @keyframes fadein {
+        from {
+          opacity: 0;
+          transform: translateY(-6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
     `,
   ],
@@ -73,18 +101,62 @@ export class EarningsComponent implements OnInit {
   private auth = inject(AuthService);
   private http = inject(HttpClient);
 
+  // state
   payments = signal<Payment[]>([]);
-  total = computed(() =>
-    this.payments().reduce((s, p) => s + (p.status === 'succeeded' ? p.amount : 0), 0)
-  );
+  loading = signal(false);
+  error = signal<string | null>(null);
+
+  // derived
+  total = computed(() => this.payments().reduce((acc, p) => acc + (p.amount ?? 0), 0));
+
+  // UI feedback (piloté par effect)
+  private lastTotal = signal<number>(0);
+  flash = signal<{ delta: number } | null>(null);
+  isPulsing = signal(false);
+
+  constructor() {
+    // 🎬 EFFECT VISUEL : déclenché à chaque changement de total
+    effect(() => {
+      const prev = this.lastTotal();
+      const now = this.total();
+
+      if (now > prev) {
+        const delta = +(now - prev).toFixed(2);
+        this.flash.set({ delta });
+        this.isPulsing.set(true);
+
+        // masque le toast après 2,5 s et stoppe le pulse
+        setTimeout(() => this.flash.set(null), 2500);
+        setTimeout(() => this.isPulsing.set(false), 2500);
+      }
+      // mémorise la dernière valeur pour la prochaine comparaison
+      this.lastTotal.set(now);
+    });
+  }
 
   async ngOnInit() {
-    // Démo : lit toute la collection /api/payments (mock CRUD par défaut)
+    await this.refresh();
+  }
+
+  async refresh() {
+    const user = this.auth.user();
+    if (!user) {
+      this.payments.set([]);
+      return;
+    }
+    this.loading.set(true);
+    this.error.set(null);
     try {
-      const list = await this.http.get<Payment[]>('/api/payments').toPromise();
+      // On filtre côté API
+      const list = await firstValueFrom(
+        this.http.get<Payment[]>(`/api/payments?driverId=${user.id}`)
+      );
       this.payments.set(list ?? []);
     } catch {
+      this.error.set('Impossible de charger les gains');
       this.payments.set([]);
+    } finally {
+      this.loading.set(false);
     }
   }
 }
