@@ -2,13 +2,12 @@
 import { TestBed } from '@angular/core/testing';
 import { AppComponent } from './app.component';
 import { RouterTestingModule } from '@angular/router/testing';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { HttpClientTestingModule, provideHttpClientTesting } from '@angular/common/http/testing';
 
 describe('AppComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [RouterTestingModule, AppComponent], // RouterOutlet + RouterLink OK
-      providers: [provideHttpClientTesting()], // HttpClient pour AuthService/Header
+      imports: [RouterTestingModule, AppComponent, HttpClientTestingModule], // RouterOutlet + RouterLink OK
     }).compileComponents();
   });
 
@@ -28,7 +27,7 @@ describe('AppComponent', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    // Le template ne contient pas de <h1>, on vérifie que le header est bien rendu
+    // Le template ne contie  nt pas de <h1>, on vérifie que le header est bien rendu
     expect(compiled.querySelector('app-header')).not.toBeNull();
   });
 });
