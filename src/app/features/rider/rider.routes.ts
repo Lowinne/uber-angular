@@ -18,7 +18,8 @@ export const RIDER_ROUTES: Routes = [
   {
     path: 'request',
     canActivate: [authGuard],
-    loadComponent: () => import('./request-ride.component').then(m => m.RequestRideComponent),
+    loadComponent: () =>
+      import('./request-ride/request-ride.component').then(m => m.RequestRideComponent),
   },
   { path: 'confirm', component: ConfirmRideComponent },
   { path: 'track', component: TrackRideComponent },
