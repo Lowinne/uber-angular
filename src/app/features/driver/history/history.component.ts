@@ -4,36 +4,22 @@ import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../../core/services/auth.service';
 import { Trip } from '../../../mock-api/db/trips.seed';
 import { firstValueFrom } from 'rxjs';
-import { FormsModule } from '@angular/forms';
 
 @Component({
   standalone: true,
-  selector: 'app-rider-history',
-  imports: [CommonModule, FormsModule],
+  selector: 'app-driver-history',
+  imports: [CommonModule],
   template: `
     <section class="wrap">
-      <h2>Historique des courses (rider)</h2>
-
-      <div class="filters">
-        <label for="status">Statut</label>
-        <select id="status" [(ngModel)]="status" (change)="apply()">
-          <option value="">Tous</option>
-          <option value="requested">Requested</option>
-          <option value="ongoing">Ongoing</option>
-          <option value="completed">Completed</option>
-          <option value="cancelled_by_rider">Annulée (rider)</option>
-          <option value="cancelled_by_driver">Annulée (driver)</option>
-        </select>
-      </div>
-
-      <p class="err" *ngIf="error()">{{ error() }}</p>
+      <h2>Historique des courses (driver)</h2>
 
       <ul class="list">
-        <li *ngFor="let t of filtered()">
+        <li *ngFor="let t of items()">
           <div class="row">
             <span>#{{ t.id }}</span>
             <span class="badge" [class]="t.status">{{ t.status }}</span>
             <span *ngIf="t.price !== null">{{ t.price | number: '1.2-2' }} €</span>
+            <span>Rider #{{ t.riderId }}</span>
             <span
               >{{ t.startedAt | date: 'short' }} →
               {{ t.endedAt ? (t.endedAt | date: 'short') : '—' }}</span
@@ -50,11 +36,6 @@ import { FormsModule } from '@angular/forms';
         display: grid;
         gap: 12px;
       }
-      .filters {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
       .list {
         list-style: none;
         padding: 0;
@@ -64,7 +45,7 @@ import { FormsModule } from '@angular/forms';
       }
       .row {
         display: grid;
-        grid-template-columns: 100px 1fr 120px 1fr;
+        grid-template-columns: 90px 120px 120px 120px 1fr;
         gap: 8px;
         border: 1px solid #e5e7eb;
         border-radius: 10px;
@@ -93,39 +74,22 @@ import { FormsModule } from '@angular/forms';
         background: #fee2e2;
         color: #991b1b;
       }
-      .err {
-        color: #b00020;
-      }
     `,
   ],
 })
-export class RiderHistoryComponent implements OnInit {
+export class DriverHistoryComponent implements OnInit {
   private http = inject(HttpClient);
   private auth = inject(AuthService);
 
   items = signal<Trip[]>([]);
-  filtered = signal<Trip[]>([]);
-  status: '' | Trip['status'] = '';
-  error = signal<string | null>(null);
 
   async ngOnInit() {
     const user = this.auth.user();
     if (!user) return;
-    this.error.set(null);
-    try {
-      const list = await firstValueFrom(this.http.get<Trip[]>(`/api/trips?riderId=${user.id}`));
-      this.items.set(Array.isArray(list) ? list : []);
-      this.apply();
-    } catch (e) {
-      this.error.set('Impossible de charger l’historique');
-      this.items.set([]);
-      this.filtered.set([]);
-    }
-  }
 
-  apply() {
-    const s = this.status;
-    const src = this.items();
-    this.filtered.set(!s ? src : src.filter(t => t.status === s));
+    // Il n'y a pas (encore) d’endpoint /trips?driverId=...
+    // On récupère toutes les courses et on filtre côté front
+    const all = await firstValueFrom(this.http.get<Trip[]>('/api/trips/all'));
+    this.items.set(all.filter(t => t.driverId === user.id));
   }
 }

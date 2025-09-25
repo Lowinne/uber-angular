@@ -19,6 +19,10 @@ import { firstValueFrom } from 'rxjs';
         <p><strong>Rider:</strong> #{{ trip()!.riderId }}</p>
         <p><strong>Status:</strong> {{ trip()!.status }}</p>
         <p><strong>Prix:</strong> {{ trip()!.price ?? '—' }} €</p>
+        <p>
+          <strong>Adresse Géographique:</strong> {{ trip()!.dropoff.lat }} ||
+          {{ trip()!.dropoff.lng }}
+        </p>
         <button (click)="finish()" [disabled]="loading()">Terminer le trajet</button>
       </div>
 

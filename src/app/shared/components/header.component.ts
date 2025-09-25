@@ -54,6 +54,12 @@ import { AuthService, User } from '../../core/services/auth.service';
           <a *ngIf="isDriverOrAdmin()" routerLink="/driver/earnings" routerLinkActive="active"
             >Gains</a
           >
+          <a *ngIf="isDriverOrAdmin()" routerLink="/driver/requests" routerLinkActive="active"
+            >Demandes</a
+          >
+          <a *ngIf="isDriverOrAdmin()" routerLink="/driver/history" routerLinkActive="active"
+            >Historique</a
+          >
         </nav>
       </div>
 

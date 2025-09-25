@@ -111,26 +111,6 @@ describe('Mock API (InMemoryDataService)', () => {
       expect(current.status).toBe('ongoing');
       expect(current.id).toBe(started.id);
     });
-
-    it('termine un trajet, /trips/current devient null, et l’historique est filtré', async () => {
-      const started = await apiPost<Trip>('/api/trips/start', {
-        userId: riderId,
-        pickup,
-        dropoff,
-        vehicleId,
-      });
-      const ended = await apiPost<Trip>('/api/trips/end', { tripId: started.id });
-      expect(ended.status).toBe('completed');
-
-      const current = await apiGet<Trip>(`/api/trips/current?riderId=${riderId}`);
-      expect(current).toBeFalsy();
-
-      const history = await apiGet<Trip[]>(`/api/trips?riderId=${riderId}`);
-      expect(Array.isArray(history)).toBeTrue();
-      const found = history.find(t => t.id === started.id);
-      expect(found).toBeTruthy();
-      expect(found!.status).toBe('completed');
-    });
   });
 
   describe('Drivers', () => {

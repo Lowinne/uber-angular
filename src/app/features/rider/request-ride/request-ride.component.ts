@@ -228,13 +228,14 @@ export class RequestRideComponent {
     try {
       const v = this.form.getRawValue();
       const started = await firstValueFrom(
-        this.http.post<Trip>('/api/trips/start', {
+        this.http.post<Trip>('/api/trips/request', {
           userId: user.id,
           pickup: { lat: v.pickupLat, lng: v.pickupLng },
           dropoff: { lat: v.dropoffLat, lng: v.dropoffLng },
           vehicleId: 1,
         })
       );
+      // Pour la démo on retourne à l’accueil ; sinon router vers /rider/track
       await this.router.navigateByUrl('/home');
     } catch (e: unknown) {
       this.error.set('Impossible de démarrer le trajet');
