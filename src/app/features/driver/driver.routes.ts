@@ -30,5 +30,11 @@ export const DRIVER_ROUTES: Routes = [
     loadComponent: () =>
       import('./requests/requests.component').then(m => m.DriverRequestsComponent),
   },
+  {
+    path: 'history',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['driver', 'admin'] },
+    loadComponent: () => import('./history/history.component').then(m => m.DriverHistoryComponent),
+  },
   { path: '', redirectTo: 'home', pathMatch: 'full' },
 ];

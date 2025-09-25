@@ -59,44 +59,79 @@ export class InMemoryDataService implements InMemoryDbService {
     if (url.endsWith('/drivers/nearby')) return this.nearbyDrivers(reqInfo);
     if (url.endsWith('/trips/request')) return this.requestTrip(reqInfo);
     if (url.endsWith('/trips/accept')) return this.acceptTrip(reqInfo);
+
     return undefined; // défaut: CRUD auto
   }
 
   get(reqInfo: RequestInfo) {
-    this.syncDb(reqInfo);
-    const { url } = reqInfo;
+    this.syncDb?.(reqInfo);
 
-    // /api/trips?riderId=1  -> historique
-    if (url.includes('/trips') && reqInfo.query.has('riderId') && !url.includes('/trips/current')) {
-      const riderId = Number(reqInfo.query.get('riderId')![0]);
+    const { url, query, collectionName } = reqInfo;
+    const path = url.split('?')[0]; // <-- retire la query string
+
+    console.warn('[MOCK get] url=', url, ' path=', path, ' query=', query);
+
+    // ===== PAYMENTS =====
+    if (collectionName === 'payments' || path.endsWith('/payments')) {
+      const db = this.getDb(reqInfo);
+
+      if (query.has('driverId')) {
+        const driverId = Number(query.get('driverId')![0]);
+        const list = db.payments.filter(p => p.driverId === driverId);
+        return reqInfo.utils.createResponse$(() => ({ status: 200, body: list }));
+      }
+
+      if (query.has('riderId')) {
+        const riderId = Number(query.get('riderId')![0]);
+        const list = db.payments.filter(p => p.riderId === riderId);
+        return reqInfo.utils.createResponse$(() => ({ status: 200, body: list }));
+      }
+
+      // par défaut: tout
+      return reqInfo.utils.createResponse$(() => ({ status: 200, body: db.payments }));
+    }
+
+    // ===== le reste de tes handlers GET =====
+    // utilise désormais 'path' quand tu fais des endsWith
+    if (path.endsWith('/trips/pending')) {
+      const list = this.getDb(reqInfo).trips.filter(t => t.status === 'requested');
+      return reqInfo.utils.createResponse$(() => ({ status: 200, body: list }));
+    }
+
+    if (path.includes('/trips/current-for-driver') && query.has('driverId')) {
+      const driverId = Number(query.get('driverId')![0]);
+      const trips = this.getDb(reqInfo).trips;
+      const current = trips.find(t => t.driverId === driverId && t.status === 'ongoing');
+      if (!current) return reqInfo.utils.createResponse$(() => ({ status: 204 }));
+      return reqInfo.utils.createResponse$(() => ({ status: 200, body: current }));
+    }
+
+    if (path.includes('/trips') && query.has('driverId') && !path.includes('/trips/current')) {
+      const driverId = Number(query.get('driverId')![0]);
+      const trips = this.getDb(reqInfo).trips.filter(t => t.driverId === driverId);
+      return reqInfo.utils.createResponse$(() => ({ status: 200, body: trips }));
+    }
+
+    if (collectionName === 'trips' && query.has('riderId') && !query.has('current')) {
+      const riderId = Number(query.get('riderId')![0]);
       const trips = this.getDb(reqInfo).trips.filter(t => t.riderId === riderId);
       return reqInfo.utils.createResponse$(() => ({ status: 200, body: trips }));
     }
 
-    // /api/trips/current?riderId=1 -> current trip for rider
-    if (url.includes('/trips/current') && reqInfo.query.has('riderId')) {
-      const riderId = Number(reqInfo.query.get('riderId')![0]);
+    if (path.includes('/trips/current') && query.has('riderId')) {
+      const riderId = Number(query.get('riderId')![0]);
       const trips = this.getDb(reqInfo).trips;
       const current = trips.find(
         t => t.riderId === riderId && (t.status === 'requested' || t.status === 'ongoing')
       );
-
-      // S'il n'y a pas de trajet en cours → 204 No Content (pas de body)
-      if (!current) {
-        return reqInfo.utils.createResponse$(() => ({ status: 204 }));
-      }
-
-      // Sinon → 200 + Trip
+      if (!current) return reqInfo.utils.createResponse$(() => ({ status: 204 }));
       return reqInfo.utils.createResponse$(() => ({ status: 200, body: current }));
     }
 
-    if (url.includes('/trips/pending')) return this.pendingTrips(reqInfo);
-    if (url.includes('/trips/current-for-driver') && reqInfo.query.has('driverId')) {
-      const driverId = Number(reqInfo.query.get('driverId')![0]);
-      const trips = this.getDb(reqInfo).trips;
-      const current = trips.find(t => t.driverId === driverId && t.status === 'ongoing') ?? null;
-      if (!current) return reqInfo.utils.createResponse$(() => ({ status: 204 }));
-      return reqInfo.utils.createResponse$(() => ({ status: 200, body: current }));
+    // endpoint debug pratique
+    if (path.endsWith('/trips/all')) {
+      const list = this.getDb(reqInfo).trips;
+      return reqInfo.utils.createResponse$(() => ({ status: 200, body: list }));
     }
 
     return undefined;
@@ -199,8 +234,31 @@ export class InMemoryDataService implements InMemoryDbService {
 
     trip.status = 'completed';
     trip.endedAt = new Date().toISOString();
-    this.persistDb(reqInfo);
 
+    // Crée un paiement si pas déjà fait
+    const already = db.payments.find(p => p.tripId === trip.id);
+    if (!already) {
+      const amount =
+        typeof trip.price === 'number' ? trip.price : +(8 + Math.random() * 12).toFixed(2);
+      db.payments.push({
+        id: Date.now(),
+        tripId: trip.id,
+        riderId: trip.riderId,
+        driverId: trip.driverId ?? undefined,
+        amount,
+        currency: 'EUR',
+        provider: 'mock',
+        status: 'succeeded',
+        createdAt: new Date().toISOString(),
+        receiptNumber:
+          'R-' +
+          Math.floor(Math.random() * 1_000_000)
+            .toString()
+            .padStart(6, '0'),
+      });
+    }
+
+    this.persistDb(reqInfo);
     return reqInfo.utils.createResponse$(() => ({ status: 200, body: trip }));
   }
 

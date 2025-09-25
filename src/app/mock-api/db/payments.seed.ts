@@ -22,8 +22,9 @@ export interface Payment {
   id: number;
   riderId: number; // who pays
   tripId: number; // link to a trip
+  driverId?: number;
   methodId?: number; // link to PaymentMethod
-  amount: number; // in currency units (e.g. EUR)
+  amount?: number; // in currency units (e.g. EUR)
   currency: Currency;
   provider: PaymentProvider; // gateway (mock/stripe…)
   status: PaymentStatus;
@@ -60,6 +61,7 @@ export const paymentsSeed = (): Payment[] => [
   {
     id: 8001,
     riderId: 1,
+    driverId: 2,
     tripId: 1001,
     methodId: 9001,
     amount: 13.8,
